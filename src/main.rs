@@ -68,7 +68,7 @@ impl App {
 }
 
 fn calc_radians(position: usize, start_rotation: f64, max_rotations: u64) -> f64 {
-    let mut radians = 0.0;
+    let radians;
 
     // Calculate maximum radians as max_rotations * 2*PI
     let total_radians: f64 = 2.0 * std::f64::consts::PI * (max_rotations as f64);
