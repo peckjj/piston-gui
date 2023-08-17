@@ -4,15 +4,16 @@ extern crate opengl_graphics;
 extern crate piston;
 
 use glutin_window::GlutinWindow as Window;
+use graphics::*;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::event_loop::{EventSettings, Events};
 use piston::input::{RenderArgs, RenderEvent, UpdateArgs, UpdateEvent};
 use piston::window::WindowSettings;
-use graphics::*;
 
-const NUM_RECTS: usize = 10;
-const RECT_PADDING: u8 = 5;
+const NUM_RECTS: usize = 100;
+const RECT_PADDING: u64 = 3;
 const MAX_HEIGHT_RATIO: f64 = 0.85;
+const MAX_PERIODS: u64 = 6;
 
 pub struct App {
     gl: GlGraphics, // OpenGL drawing backend.
@@ -21,13 +22,12 @@ pub struct App {
 
 impl App {
     fn render(&mut self, args: &RenderArgs) {
-
         const GREEN: [f32; 4] = [0.0, 1.0, 0.0, 1.0];
         const RED: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
 
         let window_width = args.window_size[0];
-
-        let rect_width = ( window_width - (RECT_PADDING * (NUM_RECTS as u8 + 1)) as f64 ) / NUM_RECTS as f64;
+        let rect_width =
+            (window_width - (RECT_PADDING * (NUM_RECTS as u64 + 1)) as f64) / NUM_RECTS as f64;
 
         self.gl.draw(args.viewport(), |c, gl| {
             // Clear the screen.
@@ -40,8 +40,8 @@ impl App {
                 let bottom_x = (i as f64 * rect_width) + (RECT_PADDING as f64 * (i + 1) as f64);
                 let bottom_y = args.window_size[1] - 1.0;
 
-                let top_x = (bottom_x + rect_width);
-                let top_y: f64 = ((1.0 - MAX_HEIGHT_RATIO) * args.window_size[1]) * rad2ratio(calc_radians(i, self.rotation, 4));
+                let top_x = bottom_x + rect_width;
+                let top_y: f64 = args.window_size[1] - (MAX_HEIGHT_RATIO * args.window_size[1] * rad2ratio(calc_radians(i, self.rotation, MAX_PERIODS)));
 
                 let square = rectangle::rectangle_by_corners(bottom_x, bottom_y, top_x, top_y);
                 rectangle(RED, square, c.transform, gl);
@@ -56,20 +56,7 @@ impl App {
     }
 }
 
-fn create_rects() -> [types::Rectangle; NUM_RECTS] {
-    let mut ret: [types::Rectangle; NUM_RECTS] = Default::default();
-
-    let mut i = 0;
-
-    while i < ret.len() {
-        // ret[i] = rectangle::rectangle_by_corners(x0, y0, x1, y1);
-        i += 1;
-    }
-
-    return ret;
-}
-
-fn calc_radians(position: usize, start_rotation: f64, max_rotations: u8) -> f64 {
+fn calc_radians(position: usize, start_rotation: f64, max_rotations: u64) -> f64 {
     let mut radians = 0.0;
 
     let total_radians: f64 = 2.0 * std::f64::consts::PI * (max_rotations as f64);
@@ -81,19 +68,13 @@ fn calc_radians(position: usize, start_rotation: f64, max_rotations: u8) -> f64 
 }
 
 fn rad2ratio(radians: f64) -> f64 {
-    return (radians % (2.0 * std::f64::consts::PI)) / std::f64::consts::PI;
+    let ratio = map_range((-1.0, 1.0), (0.0, 1.0), radians.cos());
+    return ratio;
 }
 
-fn main2() {
-    let rects = create_rects();
-
-    for rect in rects {
-        println!("rect: {},{},{},{}", rect[0], rect[1], rect[2], rect[3]);
-    }
-
-    println!("Total rects: {}", rects.len());
+fn map_range(from_range: (f64, f64), to_range: (f64, f64), s: f64) -> f64 {
+    to_range.0 + (s - from_range.0) * (to_range.1 - to_range.0) / (from_range.1 - from_range.0)
 }
-
 fn main() {
     // Change this to OpenGL::V2_1 if not working.
     let opengl = OpenGL::V3_2;
