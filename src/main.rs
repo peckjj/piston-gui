@@ -10,11 +10,11 @@ use piston::event_loop::{EventSettings, Events};
 use piston::input::{RenderArgs, RenderEvent, UpdateArgs, UpdateEvent};
 use piston::window::WindowSettings;
 
-const NUM_RECTS: usize = 4000; // Controls number of rects, similar to resolution
-const RECT_PADDING: u64 = 0; // Controls padding between rectangles
-const MAX_HEIGHT_RATIO: f64 = 1.0; // Controls how tall the waves get
-const MAX_PERIODS: u64 = 1; // Controls how many waves there are
-const SPEED_FACTOR: f64 = 12.0; // Controls how fast the waves move
+const NUM_RECTS: usize = 20; // Controls number of rects, similar to resolution
+const RECT_PADDING: u64 = 5; // Controls padding between rectangles
+const MAX_HEIGHT_RATIO: f64 = 0.90; // Controls how tall the waves get
+const MAX_PERIODS: u64 = 2; // Controls how many waves there are
+const SPEED_FACTOR: f64 = 3.0; // Controls how fast the waves move
 
 pub struct App {
     gl: GlGraphics, // OpenGL drawing backend.
