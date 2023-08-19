@@ -991,6 +991,7 @@ checksum = "3b06401e3ea38467d8d85b394557408107e3e56d827f0d00c9b47e902cbd1bed"
 name = "piston-gui"
 version = "0.1.0"
 dependencies = [
+ "byteorder",
  "piston",
  "piston2d-graphics",
  "piston2d-opengl_graphics",
