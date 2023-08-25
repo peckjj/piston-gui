@@ -1,3 +1,5 @@
+#![allow(warnings)]
+
 extern crate byteorder;
 extern crate glutin_window;
 extern crate graphics;
@@ -17,10 +19,10 @@ use std::time::Instant;
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt, ByteOrder};
 use std::io::Cursor;
 
-const NUM_RECTS: usize = 3000; // Controls number of rects, similar to resolution
+const NUM_RECTS: usize = 20; // Controls number of rects, similar to resolution
 const RECT_PADDING: u64 = 5; // Controls padding between rectangles
 const MAX_HEIGHT_RATIO: f64 = 0.90; // Controls how tall the waves get
-const MAX_PERIODS: u64 = 4; // Controls how many waves there are
+const MAX_PERIODS: u64 = 2; // Controls how many waves there are
 const SPEED_FACTOR: f64 = 12.0; // Controls how fast the waves move
 
 const WAV_HEADER_SYNC: u32 = 0b01010010_01001001_01000110_01000110; // 'RIFF'
@@ -29,6 +31,8 @@ const WAV_FORMAT_CHUNK_START: u32 = 0b01100110_01101101_01110100_00100000; // 'f
 const WAV_DATA_CHUNK_START: u32 = 0b01100100_01100001_01110100_01100001; // 'data'
 
 const DATA_PATH: &str = r#"C:\Users\pecki\Desktop\Arpeggio Feature.wav"#;
+
+const TIME_SKIP: u64 = 0;
 
 pub struct App {
     gl: GlGraphics, // OpenGL drawing backend.
@@ -107,7 +111,14 @@ fn map_range(from_range: (f64, f64), to_range: (f64, f64), s: f64) -> f64 {
     to_range.0 + (s - from_range.0) * (to_range.1 - to_range.0) / (from_range.1 - from_range.0)
 }
 
+fn main3() {
+
+}
+
 fn main() {
+    // drawMain();
+    // return;
+
     let timer_start = Instant::now();
 
     let bytes = fs::read(DATA_PATH).expect("Couldn't read file"); 
@@ -133,21 +144,136 @@ fn main() {
     let data_size = read_u32::<LittleEndian>(&mut rdr);
 
     let mut i = 0;
+    const MAX_SAMPLES: usize = 44100 * 4;
+    let mut samples_a = Vec::<i32>::with_capacity(MAX_SAMPLES);
+    // let mut samples_b = Vec::<i32>::with_capacity(MAX_SAMPLES);
 
-    while i < 10000 {
+    let mut calc_freq_1 = 2.0;
+    let mut calc_freq_2 = 4.0;
+    let sample_freq = MAX_SAMPLES as u64;
+
+    let start_data = sample_freq * TIME_SKIP;
+
+    rdr.set_position(rdr.position() + start_data);
+
+    let mut t = 0.0;
+    let d_t = 1.0 / (MAX_SAMPLES as f64);
+
+    while i < MAX_SAMPLES {
         let channel_a = read_i24::<LittleEndian>(&mut rdr);
         let channel_b = read_i24::<LittleEndian>(&mut rdr);
-        println!("{}, {}", i, channel_a);
+
+        // dummy values
+        // let channel_a = map_range((-1.0, 1.0), (std::i32::MIN as f64, std::i32::MAX as f64), calc_sine(calc_freq_1, calc_freq_2, t)) as i32;
+
+        // println!("{}, {}", i, channel_a);
+
+        samples_a.push( (channel_a / 2) + (channel_b / 2) );
+        // samples_a.push(channel_a);
 
         i = i+1;
+        t += d_t;
     }
 
-    println!();
-    println!("Executed in {:?}", timer_start.elapsed());
+    i = 0;
+
+    // println!("X, Y");
+    let mut data_norm = Vec::<f64>::with_capacity(samples_a.len());
+    normalize_data(&samples_a, &mut data_norm);
+
+    while i < MAX_SAMPLES {
+        // println!("{}, {}", i as f64, calc_amp_of_f(i as f64, &samples_a));
+        println!("{}, {}", i as f64, calc_amp_of_f_recur(i as f64, &data_norm));
+        // println!("{}", samples_a[i]);
+        // calc_freq += 50.0;
+
+        i += 1;
+    }
+
+
+    // println!();
+    // println!("Executed in {:?}", timer_start.elapsed());
 
     // let header = &(bytes[start..start + 4]);
 
     return;
+}
+
+fn calc_sine(freq_1: f64, freq_2: f64, t: f64) -> f64 {
+    return (0.5 * (2.0 * std::f64::consts::PI * freq_1 * t).sin()) + (0.5 * (2.0 * std::f64::consts::PI * freq_2 * t).sin());
+}
+
+fn calc_amp_of_f_recur(freq: f64, data: &[f64]) -> f64 {
+    if data.len() > 1 {
+        let mut even = Vec::<f64>::with_capacity(data.len() / 2);
+        let mut odd = Vec::<f64>::with_capacity(data.len() / 2);
+
+        let mut i = 0;
+        while i < data.len() {
+            if i % 2 == 0 {even.push(data[i])} else {odd.push(data[i])};
+            i += 1;
+        }
+
+        return calc_amp_of_f_recur(freq, &even) + calc_amp_of_f_recur(freq, &odd);
+    }
+
+    return calc_amp_of_f(freq, data);
+}
+
+fn calc_amp_of_f(freq: f64, data_norm: &[f64]) -> f64 {
+    // let mut data_norm = Vec::<f64>::with_capacity(data.len());
+
+    // normalize_data(data, &mut data_norm);
+
+
+    // ^f = sum of...(from 0 to (data.len() - 1) )
+    let mut i = 0;
+    let mut real_sum: f64 = 0.0;
+    let mut imag_sum: f64 = 0.0;
+
+    let mut real_abs: f64 = 0.0;
+    let mut imag_abs: f64 = 0.0;
+
+    /* Calculate sum of fourier series
+
+        amp_freq = Sum_(n = 0, data.len() - 1)_[ x_n ( cos (2*PI*freq*n / N) - i * sin( 2*PI*freq*n / N ) ) ] 
+
+    */
+
+    while i < data_norm.len() {
+        real_sum += data_norm[i] * ( 2.0 * std::f64::consts::PI * freq * (i as f64) / (data_norm.len() as f64) ).cos();
+        imag_sum -= data_norm[i] * ( 2.0 * std::f64::consts::PI * freq * (i as f64) / (data_norm.len() as f64) ).sin();
+
+        i += 1;
+    }
+
+    real_abs = real_sum * real_sum;
+    imag_abs = imag_sum * -imag_sum * -1.0;
+
+    return (real_abs + imag_abs).sqrt();
+}
+
+fn normalize_data(data: &[i32], out: &mut Vec<f64>) {
+    let mut max = 0;
+    let mut min = 0;
+
+    let mut i = 0;
+    while i < data.len() {
+        if data[i] > max {
+            max = data[i];
+        }
+        if data[i] < min {
+            min = data[i];
+        }
+
+        i += 1;
+    }
+
+     i = 0;
+     while i < data.len() {
+        out.push( map_range((min as f64, max as f64), (-1.0, 1.0), data[i] as f64) );
+        i += 1;
+     }
 }
 
 fn read_u32<T>(rdr: &mut Cursor<&[u8]>) -> u32
@@ -239,7 +365,7 @@ fn seek_header(data: &[u8]) -> usize {
 
 // }
 
-fn main2() {
+fn drawMain() {
     // Change this to OpenGL::V2_1 if not working.
     let opengl = OpenGL::V3_2;
 
